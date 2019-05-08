@@ -1,7 +1,7 @@
 import os,time
 import pandas as pd
 from datetime import date, timedelta ,datetime
-from tqdm import tqdm
+#from tqdm import tqdm
 
 #case по столбцам
 def s_r(x):
@@ -118,31 +118,32 @@ def bol_fun(x):
 def cls(): print("\n"*50)
 
 #Проверка файла
-if os.path.isfile('file.csv') == False: 
+if os.path.isfile('base.db') == False: 
     print('БД не найдена')
 
 else :
-    df=pd.read_csv('file.csv')
-    df_title=df[['LTC_R','LTC_B','ETH_L','ETH_B','BTC_R','ETH_R','Date','Time',]]
-    print(df_title.tail(5))
+    df=pd.read_sql_table(table_name ='ltc_rub',con='base.db',index_col=['id','date'])
+    
+    print(df.tail(5))
     print('Таблица загружена',str(datetime.today().strftime("%H:%M")),
           'Число строк',df.Date.count())
     print(' ')
-    time.sleep(3)
-    #отбираем по дате
-    start_date=date(2019,2,21)#2019,2,21
-    end_date=date.today()#2019,2,25)
-    #print(start_date,'  ',end_date) 
-    itog_result=pd.DataFrame(columns=['Date','Trade','Result','%','Status'])
-    d = start_date
     
+    #отбираем по дате
+    #start_date=date(2019,2,21)#2019,2,21
+    #end_date=date.today()#2019,2,25)
+    #print(start_date,'  ',end_date) 
+    #itog_result=pd.DataFrame(columns=['Date','Trade','Result','%','Status'])
+    #d = start_date
+
+    
+    '''
     pbar = tqdm(total=(end_date-start_date).days,desc="Завершено: ",
                 #ncols=3,leave=False,
                 bar_format='{desc}: {percentage:3.0f}% | Количество операций: {n_fmt}/{total_fmt} | Время: [{elapsed}]')
-    #i=0
+    
     for i in range((pbar.total)+1):
-    #while d <= end_date:
-         #print (d.strftime('%d.%m.%Y'))
+    
          
          df_date=df[df.Date==d.strftime('%d.%m.%Y')]
          if len(df_date.index)>0:
@@ -177,7 +178,7 @@ else :
     grouped1['procent']=(round((grouped1['size']/grouped1['size'].sum())*100)).astype(int)   
     print('Условия при понижении')
     print(grouped1)
-    print()
+    print()'''
        
     
     
