@@ -121,7 +121,7 @@ else :
     con=create_engine('sqlite:///base.db')
     #отбираем по дате по паре
     sql='select * from eth_ltc where date='+start_date.strftime('"%d.%m.%Y"')
-    print(sql) 
+    #print(sql) 
     df=pd.read_sql(sql, con,index_col='id')
     
     #print(df.head(5)) 
@@ -145,8 +145,9 @@ else :
     df=df[df.kurs=='+'] #выбираем по "+"
     print(df)
 
-     
-    sql='select time,price,price_v from eth_rub where date='+start_date.strftime('"%d.%m.%Y"')+' and time="'+df.key.iloc[0]+'"'
+    #print(tuple(list(df.kurs)))
+    sql='select time,price,price_v from eth_rub where date='+start_date.strftime('"%d.%m.%Y"')+' and time in '+str(tuple(list(df.key))) 
+    #sql='select time,price,price_v from eth_rub where date='+start_date.strftime('"%d.%m.%Y"')+' and time="'+df.key.iloc[0]+'"'
     print(sql) 
     df_true=pd.read_sql(sql, con)
     print (df_true) 
