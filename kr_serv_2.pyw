@@ -195,7 +195,7 @@ try:
         if tp.strftime("%H:%M")==now :
             print("\n"*50)
             html_api('https://api.exmo.com/v1/ticker/')
-            tp=datetime.now() + timedelta(minutes=5)
+            tp=datetime.now() + timedelta(minutes=3)
             print('Следующие обновление информации: ',tp.strftime("%H:%M"))
         time.sleep(2)
 except KeyboardInterrupt:

@@ -1,7 +1,7 @@
 import os,time
 import pandas as pd
 from datetime import date, timedelta ,datetime
-#from tqdm import tqdm
+from sqlalchemy import create_engine
 
 #case по столбцам
 def s_r(x):
@@ -93,11 +93,7 @@ def save_result(df_date,fdate):
      
 # подсчет процентов
 def proc_df(df_u):
-     '''print('')
-     print('фрейм',df_u)
-     print('Количество строк: ',(len(df_u)))
-     print((len(df_u[df_u.iloc[:,0]=='True'].index),'/',(len(df_u)),'*100'))
-     print((len(df_u[df_u.iloc[:,0]=='False'].index),'/',(len(df_u)),'*100'))'''
+     
      name=df_u.columns[0]
      yes=round(((len(df_u[df_u.iloc[:,0]=='True'].index))/((len(df_u))))*100)
      no=round(((len(df_u[df_u.iloc[:,0]=='False'].index))/((len(df_u))))*100)
@@ -106,10 +102,9 @@ def proc_df(df_u):
      return (name,yes,no)
 
 #определение изменение
-def bol_fun(x):
-     
-     if x>0 : res= 'True'#+str(x) 
-     if x<0 : res= 'False'#+str(x)
+def bol_fun(x):      
+     if x>0 : res= '-'#+str(x) 
+     if x<0 : res= '+'#+str(x)
      if x==0 : res='0'#+str(x)
      #print('return  ',res)
      return (res)
@@ -122,15 +117,42 @@ if os.path.isfile('base.db') == False:
     print('БД не найдена')
 
 else :
-    df=pd.read_sql_table(table_name ='ltc_rub',con='base.db',index_col=['id','date'])
+    start_date=date(2019,2,21)#2019,2,21 
+    con=create_engine('sqlite:///base.db')
+    #отбираем по дате по паре
+    sql='select * from eth_ltc where date='+start_date.strftime('"%d.%m.%Y"')
+    print(sql) 
+    df=pd.read_sql(sql, con,index_col='id')
     
-    print(df.tail(5))
+    #print(df.head(5)) 
+    #print(df.tail(5))
+    
     print('Таблица загружена',str(datetime.today().strftime("%H:%M")),
-          'Число строк',df.Date.count())
+          'Число строк',len(df))
     print(' ')
     
-    #отбираем по дате
-    #start_date=date(2019,2,21)#2019,2,21
+    #фильтруем изменения по
+    for i in range(1,len(df)):
+        #print(i) 
+        if df.loc[i,'price']!=df.loc[i+1,'price']:
+               df.loc[i+1,'kurs']=bol_fun(df.loc[i,'price']-df.loc[i+1,'price'])
+               df.loc[i+1,'key']=df.loc[i+1,'time']     
+               df.loc[i+1,'v']=bol_fun(df.loc[i,'price_v']-df.loc[i+1,'price_v'])
+               #print(i+1)          
+
+    #df=df[df.key.notnull()] # убираем пустые значения
+    #print(df)
+    df=df[df.kurs=='+'] #выбираем по "+"
+    print(df)
+
+     
+    sql='select time,price,price_v from eth_rub where date='+start_date.strftime('"%d.%m.%Y"')+' and time="'+df.key.iloc[0]+'"'
+    print(sql) 
+    df_true=pd.read_sql(sql, con)
+    print (df_true) 
+     
+
+    
     #end_date=date.today()#2019,2,25)
     #print(start_date,'  ',end_date) 
     #itog_result=pd.DataFrame(columns=['Date','Trade','Result','%','Status'])
