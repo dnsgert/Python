@@ -4,7 +4,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import timedelta, datetime
 from sqlalchemy.orm import sessionmaker
-import pandas as pd
+
+
 
 
 Base = declarative_base()
@@ -14,17 +15,19 @@ class Trade(Base):
                date= Column(String(10))
                time = Column(String(6))
                price = Column(Float)
-               price_max = Column(Float)
-               price_min = Column(Float)
+               #price_max = Column(Float)
+               #price_min = Column(Float)
                price_v= Column(Integer)
+               price_go=Column(String(1))
+               price_v_go=Column(String(1))
                                                
-               def __init__(self, date, time, price, price_max,price_min,price_v):
+               def __init__(self, date, time, price, price_v, price_go, price_v_go):
                    self.date = date
                    self.time = time
                    self.price = price
-                   self.price_max = price_max
-                   self.price_min = price_min
                    self.price_v = price_v
+                   self.price_go = price_go
+                   self.price_v_go = price_v_go
 
 class LTC_RUB(Trade):
        __tablename__='ltc_rub'
@@ -72,48 +75,40 @@ class WAVES_ETH(Trade):
        __tablename__= 'waves_eth'       
 
 
-def convert():
+def bol_fun(x):      
+     if x>0 : res= '-'#+str(x) 
+     if x<0 : res= '+'#+str(x)
+     if x==0 : res='0'#+str(x)
+     #print('return  ',res)
+     return (res)
 
-    #Проверка файла
-    if os.path.isfile('file.csv') == False: 
-        print('БД не найдена')
+def sql_q():
+    import sqlite3
+    class_sp=['ltc_rub','ltc_btc','eth_btc','eth_ltc','eth_rub','btc_rub',
+                  'bch_btc','bch_rub','bch_eth','xrp_eth','xrp_rub','xrp_btc',
+                  'waves_btc','waves_rub','waves_eth']    
+    conn = sqlite3.connect('base.db')
+    cursor = conn.cursor()
+    #sql=
 
-    else :
-        df=pd.read_csv('file.csv')
-        df_title=df[['LTC_R','LTC_B','ETH_L','ETH_B','BTC_R','ETH_R','Date','Time',]]
-        print(df_title.tail(5))
-        print('Таблица загружена',str(datetime.today().strftime("%H:%M")),
-          'Число строк',df.Date.count())
-        print(' ')
+    #print(sql)
+    
+    for i in range(len(class_sp)): 
+        cursor.executescript('ALTER TABLE '+class_sp[i]+' RENAME TO '+class_sp[i]+'_old;'+\
+            'CREATE TABLE '+class_sp[i]+\
+            '( id INTEGER PRIMARY KEY NOT NULL, date VARCHAR(10), '+\
+            'time VARCHAR(6), price float, price_v integer, '+\
+            'price_go varchar(1), price_v_go varchar(1));'+\
+            'INSERT INTO '+class_sp[i]+' (id, date, time, price, price_v) '+\
+            'SELECT id, date, time, price, price_v '+\
+            'FROM '+class_sp[i]+'_old;'+\
+            'DROP TABLE '+class_sp[i]+'_old;')# Выполняем SQL-запрос
+    
+    conn.commit()
+    cursor.close()    # Закрываем объект-курсора
+    conn.close()
 
-        #Создаем список классов
-        class_sp=[LTC_RUB,LTC_BTC,ETH_BTC,ETH_LTC,ETH_RUB,BTC_RUB]
-        class_sp2=['LTC_R','LTC_B','ETH_B','ETH_L','ETH_R','BTC_R']
-        now=datetime.now()
-        engine = create_engine('sqlite:///base.db')
-        
-        #Запись в базу
-        Session = sessionmaker(bind=engine)
-        session = Session()
-        
-        for i in range(df.Date.count()):
-            proc_result=datetime.now()-now
-            print('Выполено: ',int(round((i/df.Date.count())*100)),'% ',
-                  ' Время: [',proc_result.seconds,']')
-            for j in range(len(class_sp)):
-                #print(class_sp[j],df.Date[i],df.Time[i])
-                session.add(class_sp[j](df.Date[i],df.Time[i],
-                       float(df.loc[i,class_sp2[j]]),
-                       float(df.loc[i,(class_sp2[j]+'_MAX')]),
-                       float(df.loc[i,(class_sp2[j]+'_LOW')]),
-                       float(df.loc[i,(class_sp2[j]+'_V')])       ))
-        session.commit()
-        session.close()
-        print('Конвертация завершена')
-        time.sleep(5)
-
-
-        
+                           
 def html_err(url):
     try:
         response = requests.get(url, timeout=(5))#0.0001 для проверке
@@ -146,7 +141,7 @@ def html_api(url_get):
         if os.path.isfile('base.db') == False: 
             Base.metadata.create_all(engine)
             print('База успешно создана.',str(datetime.now().strftime("%H:%M")))
-            convert()
+            
                
         #Создаем список классов
         class_sp=[LTC_RUB,LTC_BTC,ETH_BTC,ETH_LTC,ETH_RUB,BTC_RUB,
@@ -157,20 +152,28 @@ def html_api(url_get):
         d_date=datetime.now().strftime("%d.%m.%Y")
         t_time=datetime.now().strftime("%H:%M")
 
-        #convert()
-        print('                                   ')   
-
+        #sql_q()
+        print('                                   ')
+        
+        
+        
+        
         #Запись в базу
         Session = sessionmaker(bind=engine)
         session = Session()
-                       
+        
+        #s=session.query(class_sp[0]).filter(class_sp[0].id == (session.query(class_sp[0].price).count())).one()
+        #print(s.price)
+        #print(s.price_v)
+                      
         for i in range(len(class_sp)):
-            print(class_sp[i].__name__,response_json[class_sp[i].__name__]['buy_price'])
+            s=session.query(class_sp[i]).filter(class_sp[i].id == (session.query(class_sp[i].price).count())).one()
+            #print(class_sp[i].__name__,response_json[class_sp[i].__name__]['buy_price'])
             session.add(class_sp[i](d_date,t_time,
                        float(response_json[class_sp[i].__name__]['buy_price']),
-                       float(response_json[class_sp[i].__name__]['high']),
-                       float(response_json[class_sp[i].__name__]['low']),
-                       int(float(response_json[class_sp[i].__name__]['vol'])) ))
+                       int(float(response_json[class_sp[i].__name__]['vol'])),
+                       bol_fun(s.price-float(response_json[class_sp[i].__name__]['buy_price'])),
+                       bol_fun(s.price_v-float(response_json[class_sp[i].__name__]['vol']))                                    ))
         
         session.commit()
         session.close()
