@@ -1,4 +1,6 @@
-import requests,os,sys, time
+import requests,os,sys, time, logging
+import configparser
+from logging.handlers import RotatingFileHandler
 from sqlalchemy import Column, Integer, String, Date, Float
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
@@ -15,8 +17,6 @@ class Trade(Base):
                date= Column(String(10))
                time = Column(String(6))
                price = Column(Float)
-               #price_max = Column(Float)
-               #price_min = Column(Float)
                price_v= Column(Integer)
                price_go=Column(String(1))
                price_v_go=Column(String(1))
@@ -74,6 +74,30 @@ class WAVES_RUB(Trade):
 class WAVES_ETH(Trade):
        __tablename__= 'waves_eth'       
 
+def f_config(i):
+
+    if not os.path.exists('setting.ini'):
+        config = configparser.ConfigParser()
+        config.add_section("Settings")
+        config.set("Settings", "Learn", "0")
+        config.set("Settings", "Close", "0")
+        app_log.info('Create ini file')
+        with open('setting.ini', "w") as config_file:
+            config.write(config_file)
+
+    config = configparser.ConfigParser()
+    config.read('setting.ini')
+    if i==1:
+        # Меняем значения из конфиг. файла.
+        config.set('Settings', 'Close', '0')
+        
+        # Вносим изменения в конфиг. файл.
+        with open('setting.ini', 'w') as config_file:
+            config.write(config_file)
+    else:
+        # Читаем некоторые значения из конфиг. файла.
+        result=[config.get("Settings", "Learn"),config.get("Settings", "Close")]
+        return (result)
 
 def bol_fun(x):      
      if x>0 : res= '-'#+str(x) 
@@ -82,41 +106,13 @@ def bol_fun(x):
      #print('return  ',res)
      return (res)
 
-def sql_q():
-    import sqlite3
-    class_sp=['ltc_rub','ltc_btc','eth_btc','eth_ltc','eth_rub','btc_rub',
-                  'bch_btc','bch_rub','bch_eth','xrp_eth','xrp_rub','xrp_btc',
-                  'waves_btc','waves_rub','waves_eth']    
-    conn = sqlite3.connect('base.db')
-    cursor = conn.cursor()
-    #sql=
-
-    #print(sql)
-    
-    for i in range(len(class_sp)): 
-        cursor.executescript('ALTER TABLE '+class_sp[i]+' RENAME TO '+class_sp[i]+'_old;'+\
-            'CREATE TABLE '+class_sp[i]+\
-            '( id INTEGER PRIMARY KEY NOT NULL, date VARCHAR(10), '+\
-            'time VARCHAR(6), price float, price_v integer, '+\
-            'price_go varchar(1), price_v_go varchar(1));'+\
-            'INSERT INTO '+class_sp[i]+' (id, date, time, price, price_v) '+\
-            'SELECT id, date, time, price, price_v '+\
-            'FROM '+class_sp[i]+'_old;'+\
-            'DROP TABLE '+class_sp[i]+'_old;')# Выполняем SQL-запрос
-    
-    conn.commit()
-    cursor.close()    # Закрываем объект-курсора
-    conn.close()
-
                            
 def html_err(url):
     try:
         response = requests.get(url, timeout=(5))#0.0001 для проверке
     
     except requests.exceptions.RequestException as e:# This is the correct syntax
-        print()
-        print(e)
-        print()
+        app_log.error(e)
         result=False
     else:
         result=True
@@ -126,22 +122,23 @@ def html_err(url):
 def html_api(url_get):
     
     if html_err(url_get)==False:
-        res='Сайт не доступен'
+        app_log.error('Сайт не доступен')
     else :
         # получить данные с биржи
         response = requests.get(url_get)
         # переводим данные во понятный программе формат
         response_json = response.json()
         
-        #print(response_json)
+        #console.debug(response_json)
         engine = create_engine('sqlite:///base.db')
         
         
         #Проверка файла
         if os.path.isfile('base.db') == False: 
-            Base.metadata.create_all(engine)
-            print('База успешно создана.',str(datetime.now().strftime("%H:%M")))
-            
+            #Base.metadata.create_all(engine)
+            #console.debug('База успешно создана.',str(datetime.now().strftime("%H:%M")))
+            app_log.crit('Base not found. Close program')
+            sys.exit()
                
         #Создаем список классов
         class_sp=[LTC_RUB,LTC_BTC,ETH_BTC,ETH_LTC,ETH_RUB,BTC_RUB,
@@ -151,24 +148,14 @@ def html_api(url_get):
         #текущая дата и врем
         d_date=datetime.now().strftime("%d.%m.%Y")
         t_time=datetime.now().strftime("%H:%M")
-
-        #sql_q()
-        print('                                   ')
-        
-        
-        
-        
+            
         #Запись в базу
         Session = sessionmaker(bind=engine)
         session = Session()
-        
-        #s=session.query(class_sp[0]).filter(class_sp[0].id == (session.query(class_sp[0].price).count())).one()
-        #print(s.price)
-        #print(s.price_v)
-                      
+                             
         for i in range(len(class_sp)):
             s=session.query(class_sp[i]).filter(class_sp[i].id == (session.query(class_sp[i].price).count())).one()
-            #print(class_sp[i].__name__,response_json[class_sp[i].__name__]['buy_price'])
+            #console.debug(class_sp[i].__name__,response_json[class_sp[i].__name__]['buy_price'])
             session.add(class_sp[i](d_date,t_time,
                        float(response_json[class_sp[i].__name__]['buy_price']),
                        int(float(response_json[class_sp[i].__name__]['vol'])),
@@ -177,19 +164,48 @@ def html_api(url_get):
         
         session.commit()
         session.close()
-        print('Данные добавлены в БД')
+        console.debug('Данные добавлены в БД')
 
-    
+#настройка логирования
+log_format=logging.Formatter('%(asctime)s [%(levelname)s] :  %(message)s', 
+    datefmt='%d.%m.%Y %H:%M:%S')
 
-def unix_time(unix_vvod):
-    return (datetime.datetime.fromtimestamp(int(unix_vvod)).strftime("%Y-%m-%d %H:%M"))
-        
-def time_unix (time_vvod):
-    return (int(time.mktime(time.strptime(time_vvod, '%Y-%m-%d %H:%M:%S'))))
+# полный лог файл
+f_hand = RotatingFileHandler('log.log', mode = 'a', maxBytes = 10485760,
+                                 backupCount = 10, encoding = None, delay = 0)
+f_hand.setFormatter(log_format)
+f_hand.setLevel(logging.INFO)
+
+# лог файл только ошибок
+f_er_hand = RotatingFileHandler('error.log', mode = 'a', maxBytes = 10485760,
+                                 backupCount = 10, encoding = None, delay = 0)
+f_er_hand.setFormatter(log_format)
+f_er_hand.setLevel(logging.ERROR)
+
+#
+d_hand=logging.StreamHandler()
+d_hand.setLevel(logging.DEBUG)
+
+
+# инициализация логирования
+app_log = logging.getLogger('root')
+app_log.setLevel(logging.INFO)
+
+console = logging.getLogger('console')
+console.setLevel(logging.DEBUG)
+ 
+app_log.addHandler(f_hand)
+app_log.addHandler(f_er_hand)
+console.addHandler(d_hand)
+
+
+app_log.info('Start program') # записываем сообщение
+
+f_config(1) #обнуляем закрытие скрипта
 
 tp=datetime.now() + timedelta(minutes=3)
 html_api('https://api.exmo.com/v1/ticker/')
-print('Следующие обновление информации: ',tp.strftime("%H:%M"))
+console.debug('Следующие обновление информации: '+str(tp.strftime("%H:%M")))
 
 try:
     while True:
@@ -199,7 +215,13 @@ try:
             print("\n"*50)
             html_api('https://api.exmo.com/v1/ticker/')
             tp=datetime.now() + timedelta(minutes=3)
-            print('Следующие обновление информации: ',tp.strftime("%H:%M"))
-        time.sleep(2)
+            if f_config(0)[1]=='1':
+                console.debug('Работа завершена')
+                app_log.info('Close program')
+                sys.exit()
+                
+            console.debug('Следующие обновление информации: '+str(tp.strftime("%H:%M")))
+        time.sleep(10)
 except KeyboardInterrupt:
-    print('Работа завершена')
+    console.debug('Работа завершена')
+    app_log.info('Close program')
