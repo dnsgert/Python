@@ -112,27 +112,39 @@ def bol_fun(x):
 #очиска экрана
 def cls(): print("\n"*50)
 
+#============================================================#
+
 #Проверка файла
 if os.path.isfile('base.db') == False: 
     print('БД не найдена')
+    sys.exit()
 
-else :
-    start_date=date(2019,2,21)#2019,2,21 
-    con=create_engine('sqlite:///base.db')
-    #отбираем по дате по паре
-    sql='select * from eth_ltc where date='+start_date.strftime('"%d.%m.%Y"')
-    #print(sql) 
-    df=pd.read_sql(sql, con,index_col='id')
+
+start_date=date(2019,2,21)#Начальная дата
+
+con=create_engine('sqlite:///base.db') #Путь к базе
+
+#отбираем по дате по паре
+sql='select * from eth_ltc where date='+start_date.strftime('"%d.%m.%Y"')+\
+     ' and price_go="+"'
+#print(sql)
+
+
+df=pd.read_sql(sql, con,index_col='id') #Получаем данные в панду
+
+table_list=['ltc_rub','ltc_btc','eth_btc','eth_ltc','eth_rub','btc_rub',
+                  'bch_btc','bch_rub','bch_eth','xrp_eth','xrp_rub','xrp_btc',
+                  'waves_btc','waves_rub','waves_eth']
+
+df_res=pd.DataFrame(columns=['trade','','price_go'])    
+
+#print(df)
     
-    #print(df.head(5)) 
-    #print(df.tail(5))
-    
-    print('Таблица загружена',str(datetime.today().strftime("%H:%M")),
+print('Таблица загружена',str(datetime.today().strftime("%H:%M")),
           'Число строк',len(df))
-    print(' ')
-    
-    #фильтруем изменения по
-    for i in range(1,len(df)):
+print(' ')
+'''#фильтруем изменения по
+for i in range(1,len(df)):
         #print(i) 
         if df.loc[i,'price']!=df.loc[i+1,'price']:
                df.loc[i+1,'kurs']=bol_fun(df.loc[i,'price']-df.loc[i+1,'price'])
@@ -140,18 +152,28 @@ else :
                df.loc[i+1,'v']=bol_fun(df.loc[i,'price_v']-df.loc[i+1,'price_v'])
                #print(i+1)          
 
-    #df=df[df.key.notnull()] # убираем пустые значения
-    #print(df)
-    df=df[df.kurs=='+'] #выбираем по "+"
-    print(df)
+#df=df[df.key.notnull()] # убираем пустые значения
+#print(df)
+df=df[df.kurs=='+'] #выбираем по "+"
+print(df)'''
 
-    #print(tuple(list(df.kurs)))
-    sql='select time,price,price_v from eth_rub where date='+start_date.strftime('"%d.%m.%Y"')+' and time in '+str(tuple(list(df.key))) 
-    #sql='select time,price,price_v from eth_rub where date='+start_date.strftime('"%d.%m.%Y"')+' and time="'+df.key.iloc[0]+'"'
-    print(sql) 
-    df_true=pd.read_sql(sql, con)
-    print (df_true) 
-     
+#print(tuple(list(df.kurs)))
+for i in range(len(table_list)):
+     sql='select price_go from '+table_list[i]+\
+          ' where date='+start_date.strftime('"%d.%m.%Y"')+\
+          ' and price_go!=0'+\
+          ' and time in '+str(tuple(list(df.time))) 
+
+     #print(sql) 
+     df_true=pd.read_sql(sql, con)
+     df_true['trade']=table_list[i]
+     df_res=df_res.append(df_true,ignore_index=True,sort=False)[['trade','price_go']]
+
+print (df_res) 
+grouped=df_res.groupby(['trade'])['price_go'].agg(['size']).astype(int).sort_values(by='size',ascending=False).reset_index()
+#grouped['procent']=(round((grouped['size']/grouped['size'].sum())*100)).astype(int)
+#    print('Условия при повышении')
+print (grouped)      
 
     
     #end_date=date.today()#2019,2,25)
@@ -160,10 +182,8 @@ else :
     #d = start_date
 
     
-    '''
-    pbar = tqdm(total=(end_date-start_date).days,desc="Завершено: ",
-                #ncols=3,leave=False,
-                bar_format='{desc}: {percentage:3.0f}% | Количество операций: {n_fmt}/{total_fmt} | Время: [{elapsed}]')
+'''
+    
     
     for i in range((pbar.total)+1):
     
