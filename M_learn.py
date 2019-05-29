@@ -11,96 +11,18 @@ def s_r(x):
              'down_low':'-'}.get(x)
 
 #обработка результатов
-def save_result(df_date,fdate):
+def analiz_result():
 
-     i=0
-     eth_df=pd.DataFrame()
      
-     #фильтруем изменения по ETH_L
-     for i in range(len(df_date.index)-1) :
-        if float(df_date.loc[[i],'ETH_L'])!=float(df_date.loc[[i+1],'ETH_L']):
-               eth_df=eth_df.append({'Trade':bol_fun(round(float(df_date.loc[[i],'ETH_L'])-float(df_date.loc[[i+1],'ETH_L']),3)),
-                         'ETH_B':bol_fun(round(float(df_date.loc[[i],'ETH_B'])-float(df_date.loc[[i+1],'ETH_B']),4)), 
-                         'ETH_R':bol_fun(int(df_date.loc[[i],'ETH_R'])-int(df_date.loc[[i+1],'ETH_R'])),
-                         'LTC_R':bol_fun(int(df_date.loc[[i],'LTC_R'])-int(df_date.loc[[i+1],'LTC_R'])),
-                         'BTC_R':bol_fun(int(df_date.loc[[i],'BTC_R'])-int(df_date.loc[[i+1],'BTC_R'])),
-                         'LTC_B':bol_fun(round(float(df_date.loc[[i],'LTC_B'])-float(df_date.loc[[i+1],'LTC_B']),4))},ignore_index=True)
-                                    
-     #print(eth_df[['BTC_R','Trade']])
+     #df_true.reset_index(inplace=True)# сброс индекса
+     #del df_true['index'] #удалить столбец
      
-     # выбираем значение True
-     df_true=eth_df[eth_df.Trade=='True']
-     df_true.reset_index(inplace=True)
-     del df_true['index']
-
-     #Выбираем занчение false
-     df_false=eth_df[eth_df.Trade=='False']
-     df_false.reset_index(inplace=True)
-     del df_false['index']
-     '''
-     print('выбираем значение True')
-     print(df_true)
-     print('')
-     print('Выбираем занчение false')
-     print(df_false)
-     print('')
-     print('Количество возрастание: ',len(df_true.index))
-     print(' Количество понижение: ',len(df_false.index))
-     print('')'''
-     
-     #создаем дата фрейм
-     df_analiz=pd.DataFrame(columns=['Trade','up_hight','down_hight','up_low','down_low'])
-
-     #Заполняем его
-     i=0
-     for i in range(len(df_true.columns)-1):
-         df_analiz.loc[i,'Trade'], df_analiz.loc[i,'up_hight'], df_analiz.loc[i,'down_hight']=proc_df(df_true.iloc[:,[i]])
-
-     for i in range(len(df_false.columns)-1):
-         #print(i,'Print False : ', len(df_false.index)-1)
-         df_analiz.loc[i,'Trade'], df_analiz.loc[i,'up_low'], df_analiz.loc[i,'down_low']=proc_df(df_false.iloc[:,[i]])
-          
-     #print(df_analiz)
-     #print('Количество столбцов ',len(df_analiz.columns))
-     #print('Количество строк ',len(df_analiz.index)-1)
-     #print(df_result.iloc[0,1])
-     for i in range(len(df_analiz.index)-1):
-
-          for j in range(len(df_analiz.columns)-3):
-               j=j+3
-               if df_analiz.iloc[i,j]>=50:df_analiz.loc[len(df_analiz.index)]=[fdate,
-                                 df_analiz.iloc[i,0],s_r(df_analiz.columns[j]),
-                                 df_analiz.iloc[i,j],'down']
-          for j in range(len(df_analiz.columns)-3):
-               j=j+1
-               #print(i,j)    
-               if df_analiz.iloc[i,j]>=50:df_analiz.loc[len(df_analiz.index)]=[fdate,
-                                 df_analiz.iloc[i,0],s_r(df_analiz.columns[j]),
-                                 df_analiz.iloc[i,j],'up']
-          i=i+1
-
-     #print(df_analiz)
-     #удаление строк     
-     df_analiz.drop([0,1,2,3,4],inplace=True)
-
-     #удаление столбца
-     #del df_analiz['down_low']
+     #df_analiz.drop([0,1,2,3,4],inplace=True)#удаление строк  
 
      #переименовка столбцов
-     df_analiz.rename(columns={'Trade': 'Date', 'up_hight': 'Trade','down_hight':'Result','up_low':'%','down_low':'Status'}, inplace=True)
-     if len(df_analiz.index)==0:df_analiz=df_analiz.append({'Date':fdate,'Trade':None,'Result':None,'%':None,'Status':None},ignore_index=True)
-     return (df_analiz)
+     #df_analiz.rename(columns={'Trade': 'Date', 'up_hight': 'Trade','down_hight':'Result','up_low':'%','down_low':'Status'}, inplace=True)
      
-# подсчет процентов
-def proc_df(df_u):
      
-     name=df_u.columns[0]
-     yes=round(((len(df_u[df_u.iloc[:,0]=='True'].index))/((len(df_u))))*100)
-     no=round(((len(df_u[df_u.iloc[:,0]=='False'].index))/((len(df_u))))*100)
-     #print('Количество True: ',len(df_u[df_u.iloc[:,0]=='True'].index),'  ',yes,'%')
-     #print('Количество False: ',len(df_u[df_u.iloc[:,0]=='False'].index),'  ',no,'%')
-     return (name,yes,no)
-
 #определение изменение
 def bol_fun(x):      
      if x>0 : res= '-'#+str(x) 
@@ -119,67 +41,74 @@ if os.path.isfile('base.db') == False:
     print('БД не найдена')
     sys.exit()
 
-
-start_date=date(2019,2,21)#Начальная дата
-
-con=create_engine('sqlite:///base.db') #Путь к базе
-
-#отбираем по дате по паре
-sql='select * from eth_ltc where date='+start_date.strftime('"%d.%m.%Y"')+\
-     ' and price_go="+"'
-#print(sql)
-
-
-df=pd.read_sql(sql, con,index_col='id') #Получаем данные в панду
-
 table_list=['ltc_rub','ltc_btc','eth_btc','eth_ltc','eth_rub','btc_rub',
                   'bch_btc','bch_rub','bch_eth','xrp_eth','xrp_rub','xrp_btc',
                   'waves_btc','waves_rub','waves_eth']
 
-df_res=pd.DataFrame(columns=['trade','','price_go'])    
+start_date=date(2019,2,21)#(2019,2,21)#Начальная дата
 
-#print(df)
+end_date=date.today()# Конечная дата
+
+con=create_engine('sqlite:///base.db') #Путь к базе
+
+
+
+df_res=pd.DataFrame(columns=['trade','','price_go'])
+
+while  start_date<=end_date: #диапазон дат для оработки
+
+     #print(start_date)
+     #отбираем по дате по паре
+     sql='select * from '+table_list[3]+\
+     ' where date='+start_date.strftime('"%d.%m.%Y"')+' and price_go="+"'
+     #print(sql)
+
+
+     df=pd.read_sql(sql, con,index_col='id') #Получаем данные в панду
+
+     #print(df)
     
-print('Таблица загружена',str(datetime.today().strftime("%H:%M")),
-          'Число строк',len(df))
-print(' ')
-'''#фильтруем изменения по
-for i in range(1,len(df)):
-        #print(i) 
-        if df.loc[i,'price']!=df.loc[i+1,'price']:
-               df.loc[i+1,'kurs']=bol_fun(df.loc[i,'price']-df.loc[i+1,'price'])
-               df.loc[i+1,'key']=df.loc[i+1,'time']     
-               df.loc[i+1,'v']=bol_fun(df.loc[i,'price_v']-df.loc[i+1,'price_v'])
-               #print(i+1)          
+     #print('Таблица загружена',str(datetime.today().strftime("%H:%M")),
+          #'Число строк',len(df))
+     #print(' ')
+        
+     #print(tuple(list(df.kurs)))
+     #df=df[df.key.notnull()] # убираем пустые значения
+     #print(df)
 
-#df=df[df.key.notnull()] # убираем пустые значения
-#print(df)
-df=df[df.kurs=='+'] #выбираем по "+"
-print(df)'''
+         
+     for i in range(len(table_list)):#ищем изменения в других таблицах
+           
+           if   len(df)==1:  
+                tt=("('"+list(df['time'])[0]+"')")
+           else: tt=tuple(list(df.time))
+           
+           sql='select price_go from '+table_list[i]+\
+                  ' where date='+start_date.strftime('"%d.%m.%Y"')+\
+                  ' and price_go!=0'+\
+                  ' and time in '+str(tt) 
 
-#print(tuple(list(df.kurs)))
-for i in range(len(table_list)):
-     sql='select price_go from '+table_list[i]+\
-          ' where date='+start_date.strftime('"%d.%m.%Y"')+\
-          ' and price_go!=0'+\
-          ' and time in '+str(tuple(list(df.time))) 
+           #print(sql) 
+           if table_list[i]!=table_list[3]: #пропускаем свою таблицу    
+                df_true=pd.read_sql(sql, con)
+                df_true['trade']=table_list[i]
+                df_res=df_res.append(df_true,ignore_index=True,sort=False)[['trade','price_go']]
 
-     #print(sql) 
-     df_true=pd.read_sql(sql, con)
-     df_true['trade']=table_list[i]
-     df_res=df_res.append(df_true,ignore_index=True,sort=False)[['trade','price_go']]
+     #print (df_res) 
+     start_date=start_date+timedelta(1)
+df_res=df_res.groupby(['trade','price_go'])['price_go'].agg(['size']).astype(int).sort_values(by='size',ascending=False).reset_index()
+#df_res['procent']=(round((df_res['size']/df_res['size'].sum())*100)).astype(int)
 
-print (df_res) 
-grouped=df_res.groupby(['trade'])['price_go'].agg(['size']).astype(int).sort_values(by='size',ascending=False).reset_index()
-#grouped['procent']=(round((grouped['size']/grouped['size'].sum())*100)).astype(int)
-#    print('Условия при повышении')
-print (grouped)      
+print ('Пара: '+table_list[3]+' условия при росте' )
+print('')
+print (df_res)      
 
-    
-    #end_date=date.today()#2019,2,25)
-    #print(start_date,'  ',end_date) 
-    #itog_result=pd.DataFrame(columns=['Date','Trade','Result','%','Status'])
-    #d = start_date
+ 
+#print(start_date,'  ',end_date) 
+
+      
+         
+   
 
     
 '''
