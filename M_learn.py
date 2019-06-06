@@ -1,5 +1,6 @@
 import os
 import time
+import sys
 import pandas as pd
 from datetime import date, timedelta ,datetime
 from sqlalchemy import create_engine
@@ -8,6 +9,111 @@ from sqlalchemy import create_engine
 table_list=['ltc_rub','ltc_btc','eth_btc','eth_ltc','eth_rub','btc_rub',
                   'bch_btc','bch_rub','bch_eth','xrp_eth','xrp_rub','xrp_btc',
                   'waves_btc','waves_rub','waves_eth']
+
+
+
+def sql_null():
+    import sqlite3
+
+    #Проверка файла
+    if os.path.isfile('base.db') == False: 
+         print('БД не найдена')
+         sys.exit()
+         
+    con = sqlite3.connect('base.db')
+
+    with con: 
+         cur = con.cursor()
+
+         cur.execute('select name from sqlite_master')
+    
+         class_sp=list(sum(cur.fetchall(),()))
+
+         for i in range(len(class_sp)):
+
+              cur.execute('SELECT * FROM '+class_sp[i])
+
+              col_names = [cn[0] for cn in cur.description]
+              
+              for j in range(len(col_names)):
+               
+                  cursor.execute('SELECT * FROM '+class_sp[i]+\
+                                 ' WHERE '+str(col_names[j])+' IS NULL')
+                  print('Таблица '+str(class_sp[i]),cur.fetchall())
+
+     cur.close()    # Закрываем объект-курсора
+     con.close()
+
+def analiz():
+     
+     #Проверка файла
+     if os.path.isfile('base.db') == False: 
+         print('БД не найдена')
+         sys.exit()
+    
+     con=create_engine('sqlite:///base.db') #Путь к базе
+
+     con.execute("DROP TABLE IF EXISTS prognoz") #если существует удаляем
+
+     df_prognoz=pd.DataFrame()
+
+     now=datetime.now()
+
+     oz=['+','-']
+
+     for j in range(len(table_list)):
+     
+     
+          print(p_bar(j,len(table_list),now,'Анализ : '))
+
+          for i in range(len(oz)):
+               if oz[i]=='+':
+                    #print ('Пара:  условия +')
+                    df_up=ozk(oz[i],table_list[j])
+                    #print(df_up)
+                    #print(' ')
+               else:
+                    #print ('Пара: eth_ltc условия -')
+                    df_low=ozk(oz[i],table_list[j])
+                    #print(df_low)
+
+          df_up['%_up']=None
+          df_up['%_low']=None
+          df_up['cripta']=None
+          for i in range(len(df_up)):
+     
+               col=df_up.loc[i,'size']+df_low[(
+                    df_low.trade==df_up.loc[i,'trade'])&(
+                    df_low.price_go==df_up.loc[i,'price_go'])]['size'].values[0]
+
+
+               df_up.loc[i,'%_up']=int(df_up.loc[i,'size']/col*100 )
+               df_up.loc[i,'%_low']=int(100-df_up.loc[i,'%_up'])
+               df_up.loc[i,'cripta']=table_list[j]
+               #print(col)
+     
+          #print(' ')
+          #print ('Пара: '+table_list[j])
+          df_prognoz=df_prognoz.append(df_up,ignore_index=True,sort=False)[['cripta','trade','price_go','%_up','%_low']]
+     #print(df_prognoz)
+     df_prognoz.to_sql('prognoz',con,index=False)
+     print(p_bar(1,1,now,'Анализ завершен: '))        
+
+
+def p_bar(i,col,now,txt):
+     #i - часть
+     # col - общее количество
+     # now - время начала
+     # txt - строка
+     
+    m=str(((datetime.now()-now).seconds//60)%60)
+    s=str((datetime.now()-now).seconds%60)
+    
+    if len(s)==1: s='0'+s
+    
+    return(txt+str(int(round((i/col)*100)))+'%  Время: ['+m+':'+s+']')
+    
+
 #case по столбцам
 def s_r(x):
      return {'up_hight':'+',
@@ -79,13 +185,9 @@ def ozk(status,table):
      df_res=df_res.groupby(['trade','price_go'])['price_go'].agg(['size']).astype(int).sort_values(by='size',ascending=False).reset_index()
      #df_res['procent']=(round((df_res['size']/df_res['size'].sum())*100)).astype(int)
 
-     #print('')
      #print (df_res)
      return (df_res)
-     
-     
-     
-     
+  
      
 #определение изменение
 def bol_fun(x):      
@@ -99,43 +201,30 @@ def bol_fun(x):
 def cls(): print("\n"*50)
 
 #============================================================#
-
-#Проверка файла
-if os.path.isfile('base.db') == False: 
-    print('БД не найдена')
-    sys.exit()
-
-for j in range(len(table_list)):
+menu = [' ',
+     'Список команд ',
+     '1 - Анализ',
+     '2 - Поиск пустых данных',
+     '3 - ',
+     '4 - Выход' ]
+while True :
      
-     oz=['+','-']
-
-     for i in range(len(oz)):
-          if oz[i]=='+':
-               #print ('Пара:  условия +')
-               df_up=ozk(oz[i],table_list[j])
-               #print(df_up)
-               #print(' ')
-          else:
-               #print ('Пара: eth_ltc условия -')
-               df_low=ozk(oz[i],table_list[j])
-               #print(df_low)
-
-     df_up['%_up']=None
-     df_up['%_low']=None
-     for i in range(len(df_up)):
+     for element in menu:
+          print (element)
+          
+     a = input ('Введите команду ' )
      
-          col=df_up.loc[i,'size']+df_low[(
-               df_low.trade==df_up.loc[i,'trade'])&(
-               df_low.price_go==df_up.loc[i,'price_go'])]['size'].values[0]
-
-
-          df_up.loc[i,'%_up']=int(df_up.loc[i,'size']/col*100 )
-          df_up.loc[i,'%_low']=int(100-df_up.loc[i,'%_up'])
-          #print(col)
+     if a == '1' : analiz()
      
-     print(' ')
-     print ('Пара: '+table_list[j])
-     print(df_up[['trade','price_go','%_up','%_low']].sort_values(by='%_up',ascending=False))     
+     elif a == '2': sql_null()
+      
+     elif a == '3': pass
+          
+     elif a == '4' :
+          print ('Работа программы завершена ')
+          sys.exit()
+     else : print ("Водите только цифры от 1-6")
+  
  
  
 
@@ -145,7 +234,8 @@ for j in range(len(table_list)):
 
     
 '''
-          
+          df_prognoz[['cripta','trade','price_go','%_up','%_low']].sort_values(
+                         by='%_up',ascending=False).to_sql('prognoz',con)
          
          df_date=df[df.Date==d.strftime('%d.%m.%Y')]
          if len(df_date.index)>0:
