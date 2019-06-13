@@ -11,7 +11,14 @@ table_list=['ltc_rub','ltc_btc','eth_btc','eth_ltc','eth_rub','btc_rub',
                   'waves_btc','waves_rub','waves_eth']
 
 
+def shema():
 
+    con=create_engine('sqlite:///base.db') #Путь к базе
+    sql='select * from prognoz'
+    df=pd.read_sql(sql,con)
+    print(df)
+    
+#поиск пустых значений
 def sql_null():
     import sqlite3
 
@@ -21,7 +28,7 @@ def sql_null():
          sys.exit()
          
     con = sqlite3.connect('base.db')
-
+    z=0
     with con: 
          cur = con.cursor()
 
@@ -37,12 +44,18 @@ def sql_null():
               
               for j in range(len(col_names)):
                
-                  cursor.execute('SELECT * FROM '+class_sp[i]+\
-                                 ' WHERE '+str(col_names[j])+' IS NULL')
-                  print('Таблица '+str(class_sp[i]),cur.fetchall())
+                  b=list(sum(cur.execute('SELECT * FROM '+class_sp[i]+\
+                                 ' WHERE '+str(col_names[j])+' IS NULL').fetchall(),()))
+                  if b:
+                      print('Таблица '+str(class_sp[i])+\
+                            ' Столбец '+str(col_names[j])+' id ',b[0])
+                      print('')
+                      z=z+1
 
-     cur.close()    # Закрываем объект-курсора
-     con.close()
+    cur.close()#Закрываем объект-курсора
+    con.close()
+    print('Найдено результатов: ',z)
+
 
 def analiz():
      
@@ -55,6 +68,7 @@ def analiz():
 
      con.execute("DROP TABLE IF EXISTS prognoz") #если существует удаляем
 
+        
      df_prognoz=pd.DataFrame()
 
      now=datetime.now()
@@ -68,34 +82,43 @@ def analiz():
 
           for i in range(len(oz)):
                if oz[i]=='+':
-                    #print ('Пара:  условия +')
+                    print ('Пара: '+table_list[j]+' условия +')
                     df_up=ozk(oz[i],table_list[j])
-                    #print(df_up)
-                    #print(' ')
+                    print(df_up)
+                    print(' ')
                else:
-                    #print ('Пара: eth_ltc условия -')
+                    print ('Пара: '+table_list[j]+' условия -')
                     df_low=ozk(oz[i],table_list[j])
-                    #print(df_low)
+                    print(df_low)
 
-          df_up['%_up']=None
-          df_up['%_low']=None
+          df_up['pr']=None
+          df_up['pr_low']=None
           df_up['cripta']=None
+          #print(table_list[j],df_up)
+          #print(table_list[j],df_low)
           for i in range(len(df_up)):
-     
-               col=df_up.loc[i,'size']+df_low[(
-                    df_low.trade==df_up.loc[i,'trade'])&(
+            
+               col=df_up.loc[i,'size']+df_up[(
+                   df_up.trade==df_up.loc[i,'trade'])&(
+                   df_up.price_go!=df_up.loc[i,'price_go'])]['size'].values[0]     
+               '''              
+               col=df_up.loc[i,'size']+df_up[(
+                    df_up.trade==df_up.loc[i,'trade'])&(
                     df_low.price_go==df_up.loc[i,'price_go'])]['size'].values[0]
+               ''' 
 
-
-               df_up.loc[i,'%_up']=int(df_up.loc[i,'size']/col*100 )
-               df_up.loc[i,'%_low']=int(100-df_up.loc[i,'%_up'])
+               df_up.loc[i,'pr']=round(df_up.loc[i,'size']/col*100 )
+               #df_up.loc[i,'pr_low']=int(100-df_up.loc[i,'pr_up'])
                df_up.loc[i,'cripta']=table_list[j]
                #print(col)
-     
+               #sys.exit()  
           #print(' ')
           #print ('Пара: '+table_list[j])
-          df_prognoz=df_prognoz.append(df_up,ignore_index=True,sort=False)[['cripta','trade','price_go','%_up','%_low']]
+          
+          df_prognoz=df_prognoz.append(df_up,ignore_index=True,
+                    sort=False)[['cripta','trade','price_go','pr']]
      #print(df_prognoz)
+          
      df_prognoz.to_sql('prognoz',con,index=False)
      print(p_bar(1,1,now,'Анализ завершен: '))        
 
@@ -113,6 +136,23 @@ def p_bar(i,col,now,txt):
     
     return(txt+str(int(round((i/col)*100)))+'%  Время: ['+m+':'+s+']')
     
+
+def conv_df(df_x,tip):
+    #print(df_x)
+    if len(df_x)==1 and tip=='int':
+        #print('('+str(df_x[0])+')')
+        return ('('+str(df_x[0])+')')
+    
+    if len(df_x)==1 and tip=='txt':
+        #print("('"+str(df_x[0])+"')")
+        return ("('"+str(df_x[0])+"')")
+    
+    if len(df_x)>1 and tip=='txt':
+        return(str(tuple(list(df_x))))
+    else:
+        #print(str(tuple(df_x)))
+        return (str(tuple(df_x)))
+
 
 #case по столбцам
 def s_r(x):
@@ -133,7 +173,7 @@ def ozk(status,table):
      df_res=pd.DataFrame(columns=['trade','','price_go'])
 
      while  start_date<=end_date: #диапазон дат для оработки
-
+            
           #print(start_date)
           #отбираем по дате по паре
           sql='select * from '+table+\
@@ -141,50 +181,56 @@ def ozk(status,table):
           #print(sql)
 
           df=pd.read_sql(sql, con,index_col='id') #Получаем данные в панду
-
-          sql_2='select price_v_go from '+table+\
-               ' where date='+start_date.strftime('"%d.%m.%Y"')+\
-               ' and price_go="'+status+'"'+\
-               ' and price_v_go!=0'
-
+          #print(table,df)
           
-          df_v=pd.read_sql(sql_2,con)
-          df_v['trade']='V'
-          df_v.rename(columns={'price_v_go': 'price_go'},inplace=True)
-          #print('Таблица загружена',str(datetime.today().strftime("%H:%M")),
-               #'Число строк',len(df))
-          #print(df_v)
-        
-          #print(tuple(list(df.kurs)))
+          #print(tuple(df.index-1))
+
+          #if len(df)==1:  
+          if len(df)!=0:
+              sql_2='select price_v_go from '+table+\
+                   ' where date='+start_date.strftime('"%d.%m.%Y"')+\
+                   ' and price_v_go!=0'+\
+                   ' and id in'+conv_df(df.index-1,'int')#str(tuple(df.index-1))
+               
+
+              #print(sql_2)
+              df_v=pd.read_sql(sql_2,con)
           
-          #print(df)
-
-         
-          for i in range(len(table_list)):#ищем изменения в других таблицах
+              sql_3='select time from '+table+\
+                    ' where date='+start_date.strftime('"%d.%m.%Y"')+\
+                    ' and id in'+conv_df(df.index-1,'int')
+          
+              df_time=pd.read_sql(sql_3,con)  
            
-                if   len(df)==1:  
-                     tt=("('"+list(df['time'])[0]+"')")
-                else: tt=tuple(list(df.time))
+          
+              df_v['trade']='V'
+              df_v.rename(columns={'price_v_go': 'price_go'},inplace=True)
+              #print(df_v) 
+              #sys.exit()                 
+                   
+              for i in range(len(table_list)):#ищем изменения в других таблицах
+                              
+                    sql='select price_go from '+table_list[i]+\
+                           ' where date='+start_date.strftime('"%d.%m.%Y"')+\
+                           ' and price_go!=0'+\
+                           ' and time in '+conv_df(df_time.time,'txt') 
+
+                    #print(sql) 
+                    if table_list[i]!=table: #пропускаем свою таблицу    
+                         df_true=pd.read_sql(sql, con)
+                         df_true['trade']=table_list[i]
+                         df_res=df_res.append(df_true,ignore_index=True,sort=False)[['trade','price_go']]
+
+              #print (df_res) 
+              
            
-                sql='select price_go from '+table_list[i]+\
-                       ' where date='+start_date.strftime('"%d.%m.%Y"')+\
-                       ' and price_go!=0'+\
-                       ' and time in '+str(tt) 
+              df_res=df_res.append(df_v,ignore_index=True,sort=False)[['trade','price_go']]
 
-                #print(sql) 
-                if table_list[i]!=table: #пропускаем свою таблицу    
-                     df_true=pd.read_sql(sql, con)
-                     df_true['trade']=table_list[i]
-                     df_res=df_res.append(df_true,ignore_index=True,sort=False)[['trade','price_go']]
-
-          #print (df_res) 
           start_date=start_date+timedelta(1)
-          
-          df_res=df_res.append(df_v,ignore_index=True,sort=False)[['trade','price_go']]
-          
+          #print(df_res)    
      df_res=df_res.groupby(['trade','price_go'])['price_go'].agg(['size']).astype(int).sort_values(by='size',ascending=False).reset_index()
      #df_res['procent']=(round((df_res['size']/df_res['size'].sum())*100)).astype(int)
-
+       
      #print (df_res)
      return (df_res)
   
@@ -205,12 +251,13 @@ menu = [' ',
      'Список команд ',
      '1 - Анализ',
      '2 - Поиск пустых данных',
-     '3 - ',
+     '3 - Просмотр схемы',
      '4 - Выход' ]
 while True :
      
      for element in menu:
           print (element)
+     print ('')     
           
      a = input ('Введите команду ' )
      
@@ -218,12 +265,12 @@ while True :
      
      elif a == '2': sql_null()
       
-     elif a == '3': pass
+     elif a == '3': shema()
           
      elif a == '4' :
           print ('Работа программы завершена ')
           sys.exit()
-     else : print ("Водите только цифры от 1-6")
+     else : print ("Вводите только цифры от 1-4")
   
  
  
