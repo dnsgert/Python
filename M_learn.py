@@ -14,7 +14,7 @@ table_list=['ltc_rub','ltc_btc','eth_btc','eth_ltc','eth_rub','btc_rub',
 def shema():
 
     con=create_engine('sqlite:///base.db') #Путь к базе
-    sql='select * from prognoz'
+    sql='select * from prog_up'
     df=pd.read_sql(sql,con)
     print(df)
     
@@ -66,10 +66,12 @@ def analiz():
     
      con=create_engine('sqlite:///base.db') #Путь к базе
 
-     con.execute("DROP TABLE IF EXISTS prognoz") #если существует удаляем
-
+     con.execute('DROP TABLE IF EXISTS prog_up')
+     con.execute('DROP TABLE IF EXISTS prog_low') #если существует удаляем
+       
         
-     df_prognoz=pd.DataFrame()
+     df_prog_up=pd.DataFrame()
+     df_prog_low=pd.DataFrame()
 
      now=datetime.now()
 
@@ -82,18 +84,19 @@ def analiz():
 
           for i in range(len(oz)):
                if oz[i]=='+':
-                    print ('Пара: '+table_list[j]+' условия +')
+                    #print ('Пара: '+table_list[j]+' условия +')
                     df_up=ozk(oz[i],table_list[j])
-                    print(df_up)
-                    print(' ')
+                    #print(df_up)
+                    #print(' ')
                else:
-                    print ('Пара: '+table_list[j]+' условия -')
+                    #print ('Пара: '+table_list[j]+' условия -')
                     df_low=ozk(oz[i],table_list[j])
-                    print(df_low)
+                    #print(df_low)
 
           df_up['pr']=None
-          df_up['pr_low']=None
+          df_low['pr']=None
           df_up['cripta']=None
+          df_low['cripta']=None
           #print(table_list[j],df_up)
           #print(table_list[j],df_low)
           for i in range(len(df_up)):
@@ -101,25 +104,32 @@ def analiz():
                col=df_up.loc[i,'size']+df_up[(
                    df_up.trade==df_up.loc[i,'trade'])&(
                    df_up.price_go!=df_up.loc[i,'price_go'])]['size'].values[0]     
-               '''              
-               col=df_up.loc[i,'size']+df_up[(
-                    df_up.trade==df_up.loc[i,'trade'])&(
-                    df_low.price_go==df_up.loc[i,'price_go'])]['size'].values[0]
-               ''' 
-
+               
                df_up.loc[i,'pr']=round(df_up.loc[i,'size']/col*100 )
-               #df_up.loc[i,'pr_low']=int(100-df_up.loc[i,'pr_up'])
                df_up.loc[i,'cripta']=table_list[j]
+
+               col=df_low.loc[i,'size']+df_low[(
+                   df_low.trade==df_low.loc[i,'trade'])&(
+                   df_low.price_go!=df_low.loc[i,'price_go'])]['size'].values[0]     
+               
+               df_low.loc[i,'pr']=round(df_low.loc[i,'size']/col*100 )
+               df_low.loc[i,'cripta']=table_list[j]
+
+
                #print(col)
-               #sys.exit()  
+          #print ('Пара: '+table_list[j]+' условия +')
+          #print(df_up)       
           #print(' ')
-          #print ('Пара: '+table_list[j])
-          
-          df_prognoz=df_prognoz.append(df_up,ignore_index=True,
+          #print (df_low)
+          #sys.exit()
+          df_prog_up=df_prog_up.append(df_up,ignore_index=True,
+                    sort=False)[['cripta','trade','price_go','pr']]
+          df_prog_low=df_prog_low.append(df_low,ignore_index=True,
                     sort=False)[['cripta','trade','price_go','pr']]
      #print(df_prognoz)
           
-     df_prognoz.to_sql('prognoz',con,index=False)
+     df_prog_up.to_sql('prog_up',con,index=False)
+     df_prog_low.to_sql('prog_low',con,index=False)
      print(p_bar(1,1,now,'Анализ завершен: '))        
 
 
