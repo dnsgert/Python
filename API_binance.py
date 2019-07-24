@@ -52,25 +52,25 @@ client = Client('ao6y7zDn1Qx6in6dI39kZcQzMjDp9tnLbUXrxhXgnEdhEVm28Dhpg4sODb9fuKL
                 'bmzJiZ6Fr8KapbzOgZBkzdZ6w4AehSbc7gRji5gbxF6p3pavwTlWB5W4DEivolPW')
 
 from binance.exceptions import BinanceAPIException
-try:
-    #res = client.get_symbol_ticker()
-    klines = client.get_historical_klines("LTCBTC", Client.KLINE_INTERVAL_1DAY, "01 Jul, 2011", "20 Jul, 2019")
+
+for key in table_list:
+    try:
+        #res = client.get_symbol_ticker()
+        klines = client.get_historical_klines(table_list.get(key), Client.KLINE_INTERVAL_1DAY, "01 Jul, 2011", "20 Jul, 2019")
     
-except BinanceAPIException as e:
-    print(e)
-    sys.exit()
-data=pd.DataFrame(klines,columns=['Date','Open','Hight','Low','Close','Volume','7','Quote V','9','Active','Kotirov','Ignore'])
+    except BinanceAPIException as e:
+        print(e)
+        sys.exit()
+    data=pd.DataFrame(klines,columns=['Date','Open','Hight','Low','Close','Volume','7','Quote V','9','Active','Kotirov','Ignore'])
 
-#переводим время
-for i in range(len(data)):
-    data.loc[i,'Date']=unix_time(str(data.loc[i,'Date'])[0:-3])
+    #переводим время
+    for i in range(len(data)):
+        data.loc[i,'Date']=unix_time(str(data.loc[i,'Date'])[0:-3])
 
-data=data.drop(columns=['7','9','Ignore'])#удаляем ненужные колонки    
-#print(data.columns.values)# имена колонок
+    data=data.drop(columns=['7','9','Ignore'])#удаляем ненужные колонки    
+    #print(data.columns.values)# имена колонок
 
-data.to_sql('LTCBTC',con,index=False)#запись в SQL
-print('Данные успешно добавлены. Количство: '+str(len(data)))
+    data.to_sql(table_list.get(key),con,index=False)#запись в SQL
+    print('Данные успешно добавлены. '+table_list.get(key)+' Количство: '+str(len(data)))
     
-'''
-for i in range(len(res)):
-    print(res[i].get('symbol'))'''
+
