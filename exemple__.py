@@ -4,6 +4,8 @@ import datetime,time, sys
 
 from sqlalchemy import create_engine, exc 
 
+ 
+
 def line_reg(X,y):
 
 
@@ -54,54 +56,102 @@ def sql_error(sql,conn):#
         return(res[0]) 
     else : return(res)      
         
+def loadsql():
+    v_list=['BTCUSD','DOGEBTC','DOGEUSD','ETHBTC','LTCBTC','LTCUSD','LTCETH',
+            'XRPBTC','WAVESBTC','DOGEETH','ETHUSD','XRPETH']
+    x=input('Ведите пару: ')
+    import requests
+
+    try:
+        #req = requests.get('https://api.hitbtc.com/api/2/public/candles/'+\
+         #              'ETHBTC?period=D1&from=2016-07-01T00:00:00.000Z&till=2016-07-30T00:00:00.000Z')
+        req=requests.get('https://api.hitbtc.com/api/2/public/symbol/'+str(x))
+    except Exception as e:
+        print(e)
+        sys.exit()
+    '''    
+    print(req.encoding)  # returns 'utf-8'
+    print(req.status_code) # returns 200
+    print(req.elapsed)       # returns datetime.timedelta(0, 1, 666890)
+    print(req.headers['Content-Type'])'''
+
+    res_json = req.json()
+
+    print(res_json)
+
+    #обработка формат даты
+    for i in range(len(res_json)):
+        res_json[i]['timestamp']=str(res_json[i]['timestamp'])[0:-14]
+
+    from pandas.io.json import json_normalize
+
+    res_json=json_normalize(res_json)
+    print('ETHBTC')
+    print(res_json[['timestamp','close']])
+
+def find_k():
+    
+    import requests
+
+    try:
+        req=requests.get('https://api.hitbtc.com/api/2/public/symbol/')
+    except Exception as e:
+        print(e)
+        sys.exit()
+
+    res_json = req.json()
+
+    from pandas.io.json import json_normalize
+
+    res_json=json_normalize(res_json)
+    
+    while True:
+        print('')
+        x=input('Ведите валюту: ')
+        print('')
+        res_res=res_json.id.str.find(x)   
+        if len(res_res)==0 : print('Ничего не найдено')
+        else: print(res_res)    
+        print('<===========================================>')
+        x=input('Закончить поиск? y/n: ')
+        if x=='y' : break
+        
+
+def main(): #Mеню консоли
+
+    menu = [' ',
+         'Список команд ',
+         '1 - Поиск пары',
+         '2 - Поиск пустых данных',
+         '3 - ','(========================) ',
+         '4 - Выход' ]
+    while True :
+     
+        for element in menu:
+              print (element)
+          
+        a = input ('Введите команду ' )
+     
+        if a == '1' : find_k()
+     
+        elif a == '2': pass
+      
+        elif a == '3': pass
+          
+        elif a == '4' :
+              print ('Работа программы завершена ')
+              sys.exit()
+        else : print ("Водите только цифры от 1-6")
+    
 
 #{--------------------------------------------------------------}
 
-v_list=['BTCUSD','DOGEBTC','DOGEUSD','ETHBTC','LTCBTC','LTCUSD','XRPBTC',
-            'WAVESBTC','DOGEETH','ETHUSD','XRPETH']
-
-import requests
-#param={'symbol':'coin'}
-req = requests.get('https://api.hitbtc.com/api/2/public/candles/ETHBTC?period=D1&from=2016-07-20T00:00:00.000Z&till=2016-07-22T00:00:00.000Z')
-#req=requests.get('https://api.hitbtc.com/api/2/public/symbol')
-print(req.encoding)  # returns 'utf-8'
-print(req.status_code) # returns 200
-print(req.elapsed)       # returns datetime.timedelta(0, 1, 666890)
-print(req.headers['Content-Type'])
-
-response_json = req.json()
-for i in range(len(response_json)):
-    print(response_json[i])
-#print(response_json)
-
-'''val='btc_rub'   
-con=create_engine('sqlite:///base.db') #Путь к базе
-
-sql=sql_error('select date from '+val+' where id=(select min(id) from '+val+')',con)
-print(sql)
 
 
-from binance.client import Client
-client = Client('ao6y7zDn1Qx6in6dI39kZcQzMjDp9tnLbUXrxhXgnEdhEVm28Dhpg4sODb9fuKLn',
-                'bmzJiZ6Fr8KapbzOgZBkzdZ6w4AehSbc7gRji5gbxF6p3pavwTlWB5W4DEivolPW')
-
-from binance.exceptions import BinanceAPIException
-
-try:
-    #res = client.get_symbol_info('LTCBTC')
-    klines = client.get_historical_klines("LTCUSDT", Client.KLINE_INTERVAL_1DAY, "15 Jul, 2016", "15 Sep, 2016")
+if __name__ == "__main__":
+    main()
     
-except BinanceAPIException as e:
-    print(e)
-    sys.exit()
-data=pd.DataFrame(klines,columns=['Date','Open','Hight','Low','Close','Volume','7','Quote V','9','Active','Kotirov','Ignore'])
-for i in range(len(data)):
-    data.loc[i,'Date']=unix_time(str(data.loc[i,'Date'])[0:-3])
 
-print(data)#[['Date','Hight','Low','Volume']])
-#print(unix_time(str(time_res['serverTime'])[0:-3]))
-#res=pd.DataFrame(res)
 
-print(res)
-'''
+
 
