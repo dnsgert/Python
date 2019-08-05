@@ -59,15 +59,18 @@ def sql_error(sql,conn):#
 def loadsql():
     v_list=['BTCUSD','DOGEBTC','DOGEUSD','ETHBTC','LTCBTC','LTCUSD','LTCETH',
             'XRPBTC','WAVESBTC','DOGEETH','ETHUSD','XRPETH']
-    x=input('Ведите пару: ')
+    cls()
     import requests
 
     try:
-        #req = requests.get('https://api.hitbtc.com/api/2/public/candles/'+\
-         #              'ETHBTC?period=D1&from=2016-07-01T00:00:00.000Z&till=2016-07-30T00:00:00.000Z')
-        req=requests.get('https://api.hitbtc.com/api/2/public/symbol/'+str(x))
+        req = requests.get('https://api.hitbtc.com/api/2/public/candles/'+\
+                       'LTCBTC?period=M1&from=2015-01-01T00:00:00.000Z&till=2015-02-01T00:00:00.000Z&limit=1000')
+        
     except Exception as e:
         print(e)
+        sys.exit()
+    if req.status_code!=200 :
+        print(req.status_code)
         sys.exit()
     '''    
     print(req.encoding)  # returns 'utf-8'
@@ -77,20 +80,23 @@ def loadsql():
 
     res_json = req.json()
 
-    print(res_json)
+    #print(res_json)
 
     #обработка формат даты
     for i in range(len(res_json)):
-        res_json[i]['timestamp']=str(res_json[i]['timestamp'])[0:-14]
+        res_json[i]['time']=str(res_json[i]['timestamp'])[11:-5]
+        res_json[i]['date']=str(res_json[i]['timestamp'])[0:-14]
+        
 
     from pandas.io.json import json_normalize
 
     res_json=json_normalize(res_json)
-    print('ETHBTC')
-    print(res_json[['timestamp','close']])
+    print('LTCBTC')
+    print(res_json[['date','time','open','close','min','max',
+                    'volume','volumeQuote']])
 
 def find_k():
-    
+    cls()
     import requests
 
     try:
@@ -108,25 +114,33 @@ def find_k():
     while True:
         print('')
         x=input('Ведите валюту: ')
-        print('')
+        cls()
         res_res=res_json.id.str.find(x)   
         if len(res_res)==0 : print('Ничего не найдено')
-        else: print(res_res)    
+        else:
+            print('Количество записей: '+str(len(res_res)))
+            for i in range(len(res_res)):
+                if res_res[i] != -1 : print(res_json.id[i])  
+                
         print('<===========================================>')
         x=input('Закончить поиск? y/n: ')
         if x=='y' : break
+
+#очиска экрана
+def cls(): print("\n"*50)
+
         
 
 def main(): #Mеню консоли
-
+    
     menu = [' ',
          'Список команд ',
          '1 - Поиск пары',
-         '2 - Поиск пустых данных',
+         '2 - Создать БД',
          '3 - ','(========================) ',
          '4 - Выход' ]
     while True :
-     
+         
         for element in menu:
               print (element)
           
@@ -134,14 +148,17 @@ def main(): #Mеню консоли
      
         if a == '1' : find_k()
      
-        elif a == '2': pass
-      
+        elif a == '2': loadsql()
+                  
         elif a == '3': pass
           
         elif a == '4' :
+              cls()  
               print ('Работа программы завершена ')
               sys.exit()
-        else : print ("Водите только цифры от 1-6")
+        else :
+            cls()
+            print ("Водите только цифры от 1-4")
     
 
 #{--------------------------------------------------------------}
