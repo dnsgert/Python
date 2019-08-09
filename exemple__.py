@@ -1,8 +1,10 @@
 import pandas as pd
 
-import datetime,time, sys
+import time, sys
 
-from sqlalchemy import create_engine, exc 
+from sqlalchemy import create_engine, exc
+
+from datetime import timedelta, datetime
 
  
 
@@ -56,16 +58,25 @@ def sql_error(sql,conn):#
         return(res[0]) 
     else : return(res)      
         
-def loadsql():
+def load_sql():
     v_list=['BTCUSD','DOGEBTC','DOGEUSD','ETHBTC','LTCBTC','LTCUSD','LTCETH',
             'XRPBTC','WAVESBTC','DOGEETH','ETHUSD','XRPETH']
+    #Исходные данные
+    crp='LTCBTC'
+    date_start=datetime(2015,1,1,0,0,0)
+    date_end=datetime(2015,2,1,0,0,0)
+    df_tab=pd.DataFrame()#создание Фрейма
     cls()
+    
     import requests
-
+    
     try:
         req = requests.get('https://api.hitbtc.com/api/2/public/candles/'+\
-                       'LTCBTC?period=M1&from=2015-01-01T00:00:00.000Z&till=2015-02-01T00:00:00.000Z&limit=1000')
-        
+                       #'LTCBTC?period=M1&from=2015-01-01T00:00:00.000Z&till=2015-02-01T00:00:00.000Z&limit=1000')
+                       crp+'?period=M1&from='+date_start.strftime("%Y-%m-%d")+\
+                       'T'+date_start.strftime("%H:%M:%S")+'.000Z&till='+\
+                       date_end.strftime("%Y-%m-%d")+'T'+date_end.strftime("%H:%M:%S")+'.000Z&limit=1000')    
+                           
     except Exception as e:
         print(e)
         sys.exit()
@@ -87,31 +98,49 @@ def loadsql():
         res_json[i]['time']=str(res_json[i]['timestamp'])[11:-5]
         res_json[i]['date']=str(res_json[i]['timestamp'])[0:-14]
         
-
+    #конвертируем в pandas
     from pandas.io.json import json_normalize
 
     res_json=json_normalize(res_json)
     print('LTCBTC')
     print(res_json[['date','time','open','close','min','max',
                     'volume','volumeQuote']])
+    date_start=datetime(int(str(res_json['date'].iloc[-1])[0:-6]),
+                        int(str(res_json['date'].iloc[-1])[5:-3]),
+                        int(str(res_json['date'].iloc[-1])[8:]),
+                        int(str(res_json['time'].iloc[-1])[0:-6]),
+                        int(str(res_json['time'].iloc[-1])[3:-3]),
+                        int(str(res_json['time'].iloc[-1])[6:])
+                        )+timedelta(minutes=1)
+    #print(date_start)
+    #time_start=res_json['time'].iloc[-1]
+    date_end=date_start+timedelta(minutes=1000)
+    
+    print()
+    print(date_start,'START')
+    print(date_end,'END')
+    #datetime.now().strftime("%D-%M-%Y_%H:%M:%S")
+    df_tab.append(res_json,ignore_index=True)
+    #print(str(time_start[3:-3]))
+         
 
 def find_k():
     cls()
     import requests
 
-    try:
+    try: # API запрос
         req=requests.get('https://api.hitbtc.com/api/2/public/symbol/')
     except Exception as e:
         print(e)
         sys.exit()
 
-    res_json = req.json()
+    res_json = req.json() #переводим в формат json
 
-    from pandas.io.json import json_normalize
+    from pandas.io.json import json_normalize 
 
-    res_json=json_normalize(res_json)
+    res_json=json_normalize(res_json) #перводим из json в DataFrame
     
-    while True:
+    while True: #поиск результата
         print('')
         x=input('Ведите валюту: ')
         cls()
@@ -148,7 +177,7 @@ def main(): #Mеню консоли
      
         if a == '1' : find_k()
      
-        elif a == '2': loadsql()
+        elif a == '2': load_sql()
                   
         elif a == '3': pass
           
