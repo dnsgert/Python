@@ -1,10 +1,12 @@
 import pandas as pd
 
-import time, sys
+import time, sys, os
 
 from sqlalchemy import create_engine, exc
 
 from datetime import timedelta, datetime
+
+from sqlalchemy import create_engine
 
  
 
@@ -57,73 +59,119 @@ def sql_error(sql,conn):#
         #print('1',res)
         return(res[0]) 
     else : return(res)      
-        
-def load_sql():
-    v_list=['BTCUSD','DOGEBTC','DOGEUSD','ETHBTC','LTCBTC','LTCUSD','LTCETH',
-            'XRPBTC','WAVESBTC','DOGEETH','ETHUSD','XRPETH']
-    #Исходные данные
-    crp='LTCBTC'
-    date_start=datetime(2015,1,1,0,0,0)
-    date_end=datetime(2015,2,1,0,0,0)
+
+      
+def load_sql(crp,date_start,date_end):
+    
     df_tab=pd.DataFrame()#создание Фрейма
     cls()
-    
+
+    #print(date_start.strftime("%Y-%m-%d"),'  2016-01-01')
     import requests
-    
-    try:
-        req = requests.get('https://api.hitbtc.com/api/2/public/candles/'+\
+    from fake_useragent import UserAgent
+    ua = UserAgent()
+    header = {'User-Agent':str(ua.random)}
+    '''proxies = {
+      'http': 'http://85.26.146.169:80',
+      'https': 'http://84.201.147.212:3128',
+    }'''
+    while date_start.strftime("%Y-%m-%d")!=datetime.now().strftime("%Y-%m-%d"):
+        try:
+            req = requests.get('https://api.hitbtc.com/api/2/public/candles/'+\
                        #'LTCBTC?period=M1&from=2015-01-01T00:00:00.000Z&till=2015-02-01T00:00:00.000Z&limit=1000')
                        crp+'?period=M1&from='+date_start.strftime("%Y-%m-%d")+\
                        'T'+date_start.strftime("%H:%M:%S")+'.000Z&till='+\
-                       date_end.strftime("%Y-%m-%d")+'T'+date_end.strftime("%H:%M:%S")+'.000Z&limit=1000')    
+                       date_end.strftime("%Y-%m-%d")+'T'+date_end.strftime("%H:%M:%S")+'.000Z&limit=1000',
+                       headers=header)    
                            
-    except Exception as e:
-        print(e)
-        sys.exit()
-    if req.status_code!=200 :
-        print(req.status_code)
-        sys.exit()
-    '''    
-    print(req.encoding)  # returns 'utf-8'
-    print(req.status_code) # returns 200
-    print(req.elapsed)       # returns datetime.timedelta(0, 1, 666890)
-    print(req.headers['Content-Type'])'''
+        except Exception as e:
+            print(e)
+            sys.exit()
+        except requests.Timeout as e:
+            print("OOPS!! Timeout Error")
+            print(str(e))    
+            sys.exit()
+        if req.status_code!=200 :
+            print(req.status_code)
+            sys.exit()
+        '''    
+        print(req.encoding)  # returns 'utf-8'
+        print(req.status_code) # returns 200
+        print(req.elapsed)       # returns datetime.timedelta(0, 1, 666890)
+        print(req.headers['Content-Type'])'''
+        for key, value in req.request.headers.items():
+            print(key+": "+value)
+        res_json = req.json()
+        req.close()
+        if len(res_json)==0:
+            print('Данные не обнаружены')
+            sys.exit()
 
-    res_json = req.json()
+        print()    
+        print('количество:',len(res_json))
 
-    #print(res_json)
-
-    #обработка формат даты
-    for i in range(len(res_json)):
-        res_json[i]['time']=str(res_json[i]['timestamp'])[11:-5]
-        res_json[i]['date']=str(res_json[i]['timestamp'])[0:-14]
+        #обработка формат даты
+        for i in range(len(res_json)):
+            res_json[i]['time']=str(res_json[i]['timestamp'])[11:-5]
+            res_json[i]['date']=str(res_json[i]['timestamp'])[0:-14]
         
-    #конвертируем в pandas
-    from pandas.io.json import json_normalize
+        #конвертируем в pandas
+        from pandas.io.json import json_normalize
 
-    res_json=json_normalize(res_json)
-    print('LTCBTC')
-    print(res_json[['date','time','open','close','min','max',
-                    'volume','volumeQuote']])
-    date_start=datetime(int(str(res_json['date'].iloc[-1])[0:-6]),
+        res_json=json_normalize(res_json)
+        
+        #del res_json['timestamp']
+        #print(res_json[['date','time','open','close','min','max',
+                    #'volume','volumeQuote']])
+        date_start=datetime(int(str(res_json['date'].iloc[-1])[0:-6]),
                         int(str(res_json['date'].iloc[-1])[5:-3]),
                         int(str(res_json['date'].iloc[-1])[8:]),
                         int(str(res_json['time'].iloc[-1])[0:-6]),
                         int(str(res_json['time'].iloc[-1])[3:-3]),
                         int(str(res_json['time'].iloc[-1])[6:])
                         )+timedelta(minutes=1)
-    #print(date_start)
-    #time_start=res_json['time'].iloc[-1]
-    date_end=date_start+timedelta(minutes=1000)
+        
+        date_end=date_start+timedelta(minutes=1000)
     
-    print()
-    print(date_start,'START')
-    print(date_end,'END')
-    #datetime.now().strftime("%D-%M-%Y_%H:%M:%S")
-    df_tab.append(res_json,ignore_index=True)
-    #print(str(time_start[3:-3]))
-         
+        print()
+        print(date_start,'START')
+        print(date_end,'END')
+        #datetime.now().strftime("%D-%M-%Y_%H:%M:%S")
+        df_tab=df_tab.append(res_json[['date','time','open','close','min','max',
+                    'volume','volumeQuote']],ignore_index=True)
+        
+        
+    #print(df_tab)
 
+    #Проверка файла
+    if os.path.isfile('arhiv.db') == False: 
+         print('БД не найдена')
+         sys.exit()
+    
+    con=create_engine('sqlite:///arhiv.db') #Путь к базе
+
+    try:
+        con.execute('DROP TABLE IF EXISTS '+crp)#если существует удаляем
+        df_tab.to_sql(crp,con,index=False)
+        #print(df_tab.duplicated(subset=['time'], keep=False)) поиск дубликатов
+    except Exception as e:
+            print(e)
+    print(crp,'Записаны в SQL')
+
+def sql_base():
+    v_list=['BTCUSD','DOGEBTC','DOGEUSD','ETHBTC','LTCBTC','LTCUSD','LTCETH',
+            'XRPBTC','WAVESBTC','DOGEETH','ETHUSD','XRPETH']
+    #Исходные данные
+    crp='LTCBTC'
+    date_start=datetime(2016,3,14,19,21,0)
+    date_end=datetime.now()
+    
+    for elem in v_list:
+        
+        load_sql(elem,date_start,date_end)
+
+    print('БД успешно закружена')       
+    
 def find_k():
     cls()
     import requests
@@ -177,7 +225,7 @@ def main(): #Mеню консоли
      
         if a == '1' : find_k()
      
-        elif a == '2': load_sql()
+        elif a == '2': sql_base()
                   
         elif a == '3': pass
           
