@@ -61,27 +61,30 @@ def sql_error(sql,conn):#
     else : return(res)      
 
       
-def load_sql(crp,date_start,date_end):
+def load_data(crp,date_start):
     
     df_tab=pd.DataFrame()#создание Фрейма
     cls()
 
-    #print(date_start.strftime("%Y-%m-%d"),'  2016-01-01')
     import requests
     from fake_useragent import UserAgent
-    ua = UserAgent()
-    header = {'User-Agent':str(ua.random)}
-    '''proxies = {
-      'http': 'http://85.26.146.169:80',
-      'https': 'http://84.201.147.212:3128',
-    }'''
+    
+    
+    
+    #sys.exit()
+    
     while date_start.strftime("%Y-%m-%d")!=datetime.now().strftime("%Y-%m-%d"):
+
+        from fake_useragent import UserAgent
+        ua = UserAgent().random
+        header = {'User-Agent':str(ua),'Connection':'close'}
+
         try:
             req = requests.get('https://api.hitbtc.com/api/2/public/candles/'+\
                        #'LTCBTC?period=M1&from=2015-01-01T00:00:00.000Z&till=2015-02-01T00:00:00.000Z&limit=1000')
                        crp+'?period=M1&from='+date_start.strftime("%Y-%m-%d")+\
                        'T'+date_start.strftime("%H:%M:%S")+'.000Z&till='+\
-                       date_end.strftime("%Y-%m-%d")+'T'+date_end.strftime("%H:%M:%S")+'.000Z&limit=1000',
+                       datetime.now().strftime("%Y-%m-%d")+'T'+datetime.now().strftime("%H:%M:%S")+'.000Z&limit=1000',
                        headers=header)    
                            
         except Exception as e:
@@ -102,46 +105,64 @@ def load_sql(crp,date_start,date_end):
         for key, value in req.request.headers.items():
             print(key+": "+value)
         res_json = req.json()
-        req.close()
-        if len(res_json)==0:
-            print('Данные не обнаружены')
-            sys.exit()
-
-        print()    
-        print('количество:',len(res_json))
-
-        #обработка формат даты
-        for i in range(len(res_json)):
-            res_json[i]['time']=str(res_json[i]['timestamp'])[11:-5]
-            res_json[i]['date']=str(res_json[i]['timestamp'])[0:-14]
         
-        #конвертируем в pandas
-        from pandas.io.json import json_normalize
-
-        res_json=json_normalize(res_json)
+        if len(res_json)>0:
+            
+            print()    
+            print(crp,' количество:',len(res_json))
+            print()
+            print(date_start,'START')
+            
+            #обработка формат даты
+            for i in range(len(res_json)):
+                res_json[i]['time']=str(res_json[i]['timestamp'])[11:-5]
+                res_json[i]['date']=str(res_json[i]['timestamp'])[0:-14]
         
-        #del res_json['timestamp']
-        #print(res_json[['date','time','open','close','min','max',
+            #конвертируем в pandas
+            from pandas.io.json import json_normalize
+
+            res_json=json_normalize(res_json)
+        
+            #del res_json['timestamp']
+            #print(res_json[['date','time','open','close','min','max',
                     #'volume','volumeQuote']])
-        date_start=datetime(int(str(res_json['date'].iloc[-1])[0:-6]),
+            date_start=datetime(int(str(res_json['date'].iloc[-1])[0:-6]),
                         int(str(res_json['date'].iloc[-1])[5:-3]),
                         int(str(res_json['date'].iloc[-1])[8:]),
                         int(str(res_json['time'].iloc[-1])[0:-6]),
                         int(str(res_json['time'].iloc[-1])[3:-3]),
                         int(str(res_json['time'].iloc[-1])[6:])
                         )+timedelta(minutes=1)
-        
+            df_tab=df_tab.append(res_json[['date','time','open','close','min','max',
+                    'volume','volumeQuote']],ignore_index=True)
         date_end=date_start+timedelta(minutes=1000)
     
-        print()
-        print(date_start,'START')
-        print(date_end,'END')
-        #datetime.now().strftime("%D-%M-%Y_%H:%M:%S")
-        df_tab=df_tab.append(res_json[['date','time','open','close','min','max',
-                    'volume','volumeQuote']],ignore_index=True)
+        
+        
+        
         
         
     #print(df_tab)
+    pd_sql(df_tab,crp)
+    
+
+def sql_base():
+    v_list=['BTCUSD','DOGEBTC','DOGEUSD','ETHBTC','LTCBTC','LTCUSD','LTCETH',
+            'XRPBTC','WAVESBTC','DOGEETH','ETHUSD','XRPETH']
+    #Исходные данные
+    a=input('Действительно хотите запустить создание БД: Y?')
+    if a.upper()=='Y' :
+        crp='LTCBTC'
+        date_start=datetime(2015,1,1,0,0,0)
+    
+    
+        for elem in v_list:
+        
+            load_data(elem,date_start)
+
+        print('БД успешно закружена')       
+    
+def pd_sql(df_tab,crp):
 
     #Проверка файла
     if os.path.isfile('arhiv.db') == False: 
@@ -155,23 +176,9 @@ def load_sql(crp,date_start,date_end):
         df_tab.to_sql(crp,con,index=False)
         #print(df_tab.duplicated(subset=['time'], keep=False)) поиск дубликатов
     except Exception as e:
-            print(e)
-    print(crp,'Записаны в SQL')
+            print('Удаление записи',e)
+    print(crp,'Записаны в SQL')    
 
-def sql_base():
-    v_list=['BTCUSD','DOGEBTC','DOGEUSD','ETHBTC','LTCBTC','LTCUSD','LTCETH',
-            'XRPBTC','WAVESBTC','DOGEETH','ETHUSD','XRPETH']
-    #Исходные данные
-    crp='LTCBTC'
-    date_start=datetime(2016,3,14,19,21,0)
-    date_end=datetime.now()
-    
-    for elem in v_list:
-        
-        load_sql(elem,date_start,date_end)
-
-    print('БД успешно закружена')       
-    
 def find_k():
     cls()
     import requests
