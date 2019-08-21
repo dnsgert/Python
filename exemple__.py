@@ -2,14 +2,40 @@ import pandas as pd
 
 import time, sys, os
 
+import matplotlib.pyplot as plt
+
 from sqlalchemy import create_engine, exc
 
 from datetime import timedelta, datetime
 
 from sqlalchemy import create_engine
 
+
+
  
 
+def graff():
+    cls()
+    con=create_engine('sqlite:///arhiv.db') #Путь к базе
+
+    #загружаем data
+    start=time.time()
+    print('3агружаю данные SQL')
+    sql_pr='select * from BTCUSD'
+    df_pr=pd.read_sql(sql_pr,con)
+    end=time.time()-start
+    print('Даныые успешно загружены: ',round(end),' sec')
+    
+    print('Строю график')    
+    plt.plot(df_pr['date'], df_pr['close'])
+    #plt.plot(100,200)
+    #plt.title('Max='+str(df_pr['max'].max())+'    Min='+str(df_pr['min'].min())
+             # +'    Mean='+str(int(df_pr['close'].mean())))                                       
+    #plt.legend(loc='upper left')# подписи
+    plt.ylabel('$',rotation=30)
+    plt.xlim(df_pr.index[0],df_pr.index[-1])
+    plt.show()
+    
 def line_reg(X,y):
 
 
@@ -212,8 +238,7 @@ def find_k():
 
 #очиска экрана
 def cls(): print("\n"*50)
-
-        
+   
 
 def main(): #Mеню консоли
     
@@ -221,7 +246,8 @@ def main(): #Mеню консоли
          'Список команд ',
          '1 - Поиск пары',
          '2 - Создать БД',
-         '3 - ','(========================) ',
+         '3 - График',
+         '(========================) ',
          '4 - Выход' ]
     while True :
          
@@ -234,7 +260,8 @@ def main(): #Mеню консоли
      
         elif a == '2': sql_base()
                   
-        elif a == '3': pass
+        elif a == '3':graff()
+                      
           
         elif a == '4' :
               cls()  
